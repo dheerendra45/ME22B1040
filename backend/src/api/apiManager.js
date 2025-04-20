@@ -100,48 +100,7 @@ const apiService = {
     }
   },
 
-  async getTopUsers() {
-    // Check if we have cached data first
-    const cachedUsers = userCache.get('topUsers');
-    if (cachedUsers) {
-      return cachedUsers;
-    }
-
-    const users = await this.fetchUsers();
-    const userWithPosts = [];
-    
-    // Fetch actual post count for each user
-    for (const [id, name] of Object.entries(users)) {
-      const posts = await this.fetchUserPosts(id);
-      userWithPosts.push({
-        id,
-        name,
-        postCount: posts.length  // Use actual count instead of random number
-      });
-    }
-    
-    // Use a min-heap to find top 5 users by post count
-    const heap = new MinHeap();
-    
-    userWithPosts.forEach(user => {
-      heap.insert(user);
-      if (heap.size() > 5) {
-        heap.extractMin();
-      }
-    });
-    
-    // Extract users from heap in descending order of post count
-    const topUsers = [];
-    while (heap.size() > 0) {
-      topUsers.unshift(heap.extractMin());
-    }
-    
-    // Cache the results
-    userCache.set('topUsers', topUsers);
-    
-    return topUsers;
-  },
-
+ 
   // New method to fetch all posts from all users
   async fetchAllPosts() {
     try {
@@ -173,93 +132,7 @@ const apiService = {
     }
   },
 
-  // Method to get the latest 5 posts using max heap
-  async getLatestPosts() {
-    // Check if we have cached data first
-    const cachedPosts = latestPostsCache.get('latestPosts');
-    if (cachedPosts) {
-      return cachedPosts;
-    }
-    
-    try {
-      const allPosts = await this.fetchAllPosts();
-      
-      // Use max heap to efficiently find the latest 5 posts
-      const maxHeap = new MaxHeap((post) => post.id);
-      
-      for (const post of allPosts) {
-        maxHeap.insert(post);
-      }
-      
-      // Extract the 5 posts with highest IDs (latest posts)
-      const latestPosts = [];
-      const extractCount = Math.min(5, maxHeap.size());
-      
-      for (let i = 0; i < extractCount; i++) {
-        latestPosts.push(maxHeap.extractMax());
-      }
-      
-      // Cache the results
-      latestPostsCache.set('latestPosts', latestPosts);
-      
-      return latestPosts;
-    } catch (error) {
-      console.error('Error getting latest posts:', error.message);
-      return [];
-    }
-  },
 
-  // Method to get popular posts (with most comments) using heap
-  async getPopularPosts() {
-    // Check if we have cached data first
-    const cachedPosts = popularPostsCache.get('popularPosts');
-    if (cachedPosts) {
-      return cachedPosts;
-    }
-    
-    try {
-      const allPosts = await this.fetchAllPosts();
-      
-      // Create a priority queue to track posts by comment count
-      const commentHeap = new MaxHeap((post) => post.commentCount);
-      
-      // Process posts in batches to avoid memory issues
-      for (const post of allPosts) {
-        const comments = await this.fetchPostComments(post.id);
-        const postWithComments = {
-          ...post,
-          commentCount: comments.length
-        };
-        commentHeap.insert(postWithComments);
-      }
-      
-      // If there are no posts, return empty array
-      if (commentHeap.size() === 0) {
-        return [];
-      }
-      
-      // Get the highest comment count
-      const topPost = commentHeap.peek();
-      const maxComments = topPost.commentCount;
-      
-      // Extract all posts that have this max comment count
-      const mostCommentedPosts = [];
-      while (commentHeap.size() > 0 && commentHeap.peek().commentCount === maxComments) {
-        mostCommentedPosts.push(commentHeap.extractMax());
-      }
-      
-      // Sort by newest first within the group
-      const result = mostCommentedPosts.sort((a, b) => b.id - a.id);
-      
-      // Cache the results
-      popularPostsCache.set('popularPosts', result);
-      
-      return result;
-    } catch (error) {
-      console.error('Error getting popular posts:', error.message);
-      return [];
-    }
-  },
   
   // New method to update caches periodically
   updatePostsCache: async function() {
